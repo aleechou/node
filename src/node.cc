@@ -3654,7 +3654,7 @@ Isolate* NewIsolate(ArrayBufferAllocator* allocator) {
   return isolate;
 }
 
-inline int Start(uv_loop_t* event_loop,
+int Start(uv_loop_t* event_loop,
                  int argc, const char* const* argv,
                  int exec_argc, const char* const* exec_argv) {
   std::unique_ptr<ArrayBufferAllocator, decltype(&FreeArrayBufferAllocator)>

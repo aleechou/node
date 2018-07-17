@@ -193,6 +193,8 @@
       'deps/node-inspect/lib/internal/inspect_repl.js',
       'deps/acorn/dist/acorn.js',
       'deps/acorn/dist/walk.js',
+
+      'lib/thread.js',
     ],
     'conditions': [
       [ 'node_shared=="true"', {
@@ -319,6 +321,9 @@
       ],
 
       'sources': [
+        'src/node_thread.cc',
+        'src/node_thread.h',
+
         'src/async_wrap.cc',
         'src/bootstrapper.cc',
         'src/callback_scope.cc',

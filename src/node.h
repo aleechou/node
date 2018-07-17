@@ -60,6 +60,7 @@
 # define SIGKILL         9
 #endif
 
+#include "uv.h"
 #include "v8.h"  // NOLINT(build/include_order)
 #include "v8-platform.h"  // NOLINT(build/include_order)
 #include "node_version.h"  // NODE_MODULE_VERSION
@@ -207,7 +208,9 @@ NODE_EXTERN extern bool enable_fips_crypto;
 NODE_EXTERN extern bool force_fips_crypto;
 # endif
 #endif
-
+NODE_EXTERN int Start(uv_loop_t* event_loop,
+                 int argc, const char* const* argv,
+                 int exec_argc, const char* const* exec_argv) ;
 NODE_EXTERN int Start(int argc, char* argv[]);
 NODE_EXTERN void Init(int* argc,
                       const char** argv,
