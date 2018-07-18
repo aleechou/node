@@ -30,6 +30,7 @@
 #include "node_debug_options.h"
 #include "node_perf.h"
 #include "node_context_data.h"
+#include <iostream>
 
 #if defined HAVE_PERFCTR
 #include "node_counters.h"
@@ -1160,7 +1161,7 @@ inline struct node_module* FindModule(struct node_module* list,
       break;
   }
 
-  CHECK(mp == nullptr || (mp->nm_flags & flag) != 0);
+  CHECK(mp == nullptr || flag==0 || (mp->nm_flags & flag) != 0);
   return mp;
 }
 
@@ -1172,6 +1173,9 @@ node_module* get_internal_module(const char* name) {
 }
 node_module* get_linked_module(const char* name) {
   return FindModule(modlist_linked, name, NM_F_LINKED);
+}
+node_module* get_addon_module(const char* name) {
+  return FindModule(modlist_addon, name, 0);
 }
 
 class DLib {

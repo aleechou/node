@@ -208,6 +208,7 @@ NODE_EXTERN extern bool enable_fips_crypto;
 NODE_EXTERN extern bool force_fips_crypto;
 # endif
 #endif
+
 NODE_EXTERN int Start(uv_loop_t* event_loop,
                  int argc, const char* const* argv,
                  int exec_argc, const char* const* exec_argv) ;
@@ -603,6 +604,14 @@ extern "C" NODE_EXTERN void node_module_register(void* mod);
   void NODE_MODULE_INITIALIZER(v8::Local<v8::Object> exports,         \
                                v8::Local<v8::Value> module,           \
                                v8::Local<v8::Context> context)
+
+
+NODE_EXTERN node_module * get_builtin_module(const char* name) ;
+NODE_EXTERN node_module * get_internal_module(const char* name) ;
+NODE_EXTERN node_module * get_linked_module(const char* name) ;
+NODE_EXTERN node_module * get_addon_module(const char* name) ;
+
+
 
 /* Called after the event loop exits but before the VM is disposed.
  * Callbacks are run in reverse order of registration, i.e. newest first.

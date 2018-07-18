@@ -17,10 +17,10 @@ using v8::FunctionCallback;
 using v8::FunctionCallbackInfo;
 
 
-int assigned_thread_id = 0;
+unsigned int assigned_thread_id = 0;
 
 struct thread_data {
-    int id ;
+    unsigned int id ;
     uv_thread_t thread ;
     uv_loop_t loop ;
     std::string scriptpath ;
@@ -69,8 +69,12 @@ void Run(const FunctionCallbackInfo<Value>& args) {
 
     gThreadPool.push_back(tdata);
 
-    tdata->scriptpath = "../demo/thread.js" ;
-    // FF_ARG_STRING_IFDEF(0, tdata->scriptpath, "");
+    if( args.Length() && args[0]->IsString() ){
+        tdata->scriptpath = *(v8::String::Utf8Value(args[0]->ToString())) ;
+    }
+    else {
+        return ;
+    }
 
     // 启动线程结束
     uv_thread_create(&tdata->thread, newthread, (void*)tdata);
@@ -78,11 +82,41 @@ void Run(const FunctionCallbackInfo<Value>& args) {
     args.GetReturnValue().Set(tdata->id);
 }
 
+void InitNativeModule(const FunctionCallbackInfo<Value>& args) {
+    if( args.Length()<2 || !args[0]->IsString()){
+        return ;
+    }
+    char * moduleName = *(v8::String::Utf8Value(args[0]->ToString())) ;
+
+    node_module* nm = node::get_addon_module(moduleName) ;
+    if(nm==nullptr) {
+        std::cout << "unknow module name" << moduleName << std::endl ;
+        return ;
+    }
+
+    Environment* env = Environment::GetCurrent(args);
+    auto context = env->context();
+
+    Local<Object> module;
+    Local<Object> exports;
+    Local<Value> exports_v;
+    if (!args[1]->ToObject(context).ToLocal(&module)
+        || !module->Get(context, env->exports_string()).ToLocal(&exports_v)
+        || !exports_v->ToObject(context).ToLocal(&exports) ) {
+      return;
+    }
+
+    nm->nm_register_func ( exports, module, nm->nm_priv ) ;
+
+    args.GetReturnValue().Set(exports) ;
+}
+
 void CurrentThreadId(const FunctionCallbackInfo<Value>& args) {
     uv_thread_t thread = uv_thread_self() ;
 
     std::vector<thread_data*>::iterator it = FindThread(thread) ;
     if( it==gThreadPool.end() ) {
+        args.GetReturnValue().Set(-1);
         return ;
     }
 
@@ -95,6 +129,7 @@ void Initialize(Local<Object> target,
   Environment* env = Environment::GetCurrent(context);
   env->SetMethod(target, "run", Run);
   env->SetMethod(target, "currentThreadId", CurrentThreadId);
+  env->SetMethod(target, "initNativeModule", InitNativeModule);
 
   std::cout << "node::Thread::Initialize()" << std::endl ;
 }
