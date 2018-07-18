@@ -140,7 +140,8 @@ struct sockaddr;
     V(uv)                                                                     \
     V(v8)                                                                     \
     V(worker)                                                                 \
-    V(zlib)
+    V(zlib)                                                                   \
+    V(thread)
 
 #define NODE_BUILTIN_MODULES(V)                                               \
   NODE_BUILTIN_STANDARD_MODULES(V)                                            \
