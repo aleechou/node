@@ -3665,8 +3665,9 @@ int Start(uv_loop_t* event_loop,
 
   {
     Mutex::ScopedLock scoped_lock(node_isolate_mutex);
-    CHECK_NULL(node_isolate);
-    node_isolate = isolate;
+    // CHECK_NULL(node_isolate);
+    if(node_isolate==nullptr)
+      node_isolate = isolate;
   }
 
   int exit_code;
@@ -3690,8 +3691,9 @@ int Start(uv_loop_t* event_loop,
 
   {
     Mutex::ScopedLock scoped_lock(node_isolate_mutex);
-    CHECK_EQ(node_isolate, isolate);
-    node_isolate = nullptr;
+    // CHECK_EQ(node_isolate, isolate);
+    if(node_isolate==isolate)
+      node_isolate = nullptr;
   }
 
   isolate->Dispose();
