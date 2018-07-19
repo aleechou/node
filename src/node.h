@@ -211,7 +211,8 @@ NODE_EXTERN extern bool force_fips_crypto;
 
 NODE_EXTERN int Start(uv_loop_t* event_loop,
                  int argc, const char* const* argv,
-                 int exec_argc, const char* const* exec_argv) ;
+                 int exec_argc, const char* const* exec_argv,
+                 v8::Isolate ** isolate_out=nullptr) ;
 NODE_EXTERN int Start(int argc, char* argv[]);
 NODE_EXTERN void Init(int* argc,
                       const char** argv,

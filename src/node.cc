@@ -3660,7 +3660,8 @@ Isolate* NewIsolate(ArrayBufferAllocator* allocator) {
 
 int Start(uv_loop_t* event_loop,
                  int argc, const char* const* argv,
-                 int exec_argc, const char* const* exec_argv) {
+                 int exec_argc, const char* const* exec_argv,
+                 Isolate ** isolate_out) {
   std::unique_ptr<ArrayBufferAllocator, decltype(&FreeArrayBufferAllocator)>
       allocator(CreateArrayBufferAllocator(), &FreeArrayBufferAllocator);
   Isolate* const isolate = NewIsolate(allocator.get());
@@ -3689,6 +3690,11 @@ int Start(uv_loop_t* event_loop,
     if (track_heap_objects) {
       isolate->GetHeapProfiler()->StartTrackingHeapObjects(true);
     }
+
+    if(isolate_out!=nullptr) {
+        *isolate_out = isolate ;
+    }
+
     exit_code =
         Start(isolate, isolate_data.get(), argc, argv, exec_argc, exec_argv);
   }
