@@ -55,8 +55,6 @@ static void newthread(void* arg) {
 
     thread_data * tdata = (thread_data*)arg ;
 
-//    std::cout << "this child thread: " << tdata->scriptpath << std::endl ;
-
     // nodejs 要求 argv 数组在连续的内存上
     char * argvdata = new char[5+tdata->scriptpath.length()] ;
     strcpy(argvdata, "node") ;
