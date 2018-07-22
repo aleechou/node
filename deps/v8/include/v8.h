@@ -10469,6 +10469,12 @@ size_t SnapshotCreator::AddData(Local<T> object) {
  */
 
 
+typedef v8::Isolate* (*GetterCurrentIsolate) ();
+
+void hookGetterCurrentIsolate(GetterCurrentIsolate);
+GetterCurrentIsolate hookedGetterCurrentIsolate();
+
+
 }  // namespace v8
 
 

@@ -3,6 +3,7 @@
 #include "node_internals.h"
 #include <iostream>
 #include <unordered_map>
+#include <v8.h>
 #include <uv.h>
 
 namespace node {
@@ -17,20 +18,11 @@ using v8::Object;
 using v8::FunctionCallback;
 using v8::FunctionCallbackInfo;
 
-
 unsigned int assigned_thread_id = 0;
-
-struct thread_data {
-    unsigned int id ;
-    uv_thread_t thread ;
-    uv_loop_t * loop ;
-    std::string scriptpath ;
-    v8::Isolate * isolate = nullptr ;
-} ;
 
 std::vector<thread_data*> gThreadPool ;
 
-std::vector<thread_data*>::iterator FindThread(uv_thread_t thread) {
+inline std::vector<thread_data*>::iterator FindThreadPos(uv_thread_t thread) {
     for(std::vector<thread_data*>::iterator it=gThreadPool.begin();
             it!=gThreadPool.end(); it++)
     {
@@ -40,35 +32,54 @@ std::vector<thread_data*>::iterator FindThread(uv_thread_t thread) {
     }
     return gThreadPool.end() ;
 }
-std::vector<thread_data*>::iterator FindThread(unsigned int id) {
+inline std::vector<thread_data*>::iterator FindThreadPos(unsigned int id) {
     for(std::vector<thread_data*>::iterator it=gThreadPool.begin();
-            it!=gThreadPool.end(); it++)
-    {
+            it!=gThreadPool.end(); it++) {
+
         if((*it)->id == id) {
             return it ;
         }
     }
     return gThreadPool.end() ;
 }
+bool IsValid(std::vector<thread_data*>::iterator it) {
+    return it != gThreadPool.end() ;
+}
+
+
+thread_data * FindThread(uv_thread_t thread) {
+    auto it = FindThreadPos(thread) ;
+    return it==gThreadPool.end()? nullptr: (*it) ;
+}
+thread_data * FindThread(unsigned int id) {
+    auto it = FindThreadPos(id) ;
+    return it==gThreadPool.end()? nullptr: (*it) ;
+}
+v8::Isolate* CurrentIsolate() {
+    auto tdata = FindThread(uv_thread_self()) ;
+    return tdata==nullptr? nullptr: tdata->isolate ;
+}
+
 
 static void newthread(void* arg) {
 
     thread_data * tdata = (thread_data*)arg ;
 
     // nodejs 要求 argv 数组在连续的内存上
-    char * argvdata = new char[5+tdata->scriptpath.length()] ;
+    char * argvdata = new char[6+tdata->scriptpath.length()+tdata->json_argv.length()] ;
     strcpy(argvdata, "node") ;
     strcpy(argvdata+5, tdata->scriptpath.data()) ;
-    char * argv[2] = {argvdata, argvdata+5} ;
+    strcpy(argvdata+5+tdata->scriptpath.length()+1, tdata->json_argv.data()) ;
+    char * argv[3] = {argvdata, argvdata+5, argvdata+5+tdata->scriptpath.length()+1 } ;
 
     uv_loop_init(tdata->loop) ;
 
-    node::Start(tdata->loop, 2, argv, 0, nullptr, &tdata->isolate) ;
+    node::Start(tdata->loop, 3, argv, 0, nullptr, &tdata->isolate) ;
 
     uv_loop_close(tdata->loop);
     delete tdata->loop;
 
-    std::vector<thread_data*>::iterator it = FindThread(tdata->thread) ;
+    std::vector<thread_data*>::iterator it = FindThreadPos(tdata->thread) ;
     gThreadPool.erase(it) ;
     delete tdata ;
 }
@@ -81,11 +92,15 @@ void Run(const FunctionCallbackInfo<Value>& args) {
 
     gThreadPool.push_back(tdata);
 
-    if( args.Length() && args[0]->IsString() ){
+    if( args.Length()>=1 && args[0]->IsString() ){
         tdata->scriptpath = *(v8::String::Utf8Value(args[0]->ToString())) ;
     }
     else {
         return ;
+    }
+
+    if( args.Length()>=2 && args[1]->IsString() ){
+        tdata->json_argv = *(v8::String::Utf8Value(args[1]->ToString())) ;
     }
 
     // 启动线程结束
@@ -102,7 +117,7 @@ void HasNativeModuleLoaded(const FunctionCallbackInfo<Value>& args) {
     char * moduleName = *(v8::String::Utf8Value(args[0]->ToString())) ;
     node_module* nm = node::get_addon_module(moduleName) ;
 
-    args.GetReturnValue().Set(nm==nullptr) ;
+    args.GetReturnValue().Set(nm!=nullptr) ;
 }
 
 void InitNativeModule(const FunctionCallbackInfo<Value>& args) {
@@ -114,7 +129,7 @@ void InitNativeModule(const FunctionCallbackInfo<Value>& args) {
 
     node_module* nm = node::get_addon_module(moduleName) ;
     if(nm==nullptr) {
-        std::cout << "unknow module name" << moduleName << std::endl ;
+        std::cout << "unknow module name: " << moduleName << std::endl ;
         return ;
     }
 
@@ -138,13 +153,13 @@ void InitNativeModule(const FunctionCallbackInfo<Value>& args) {
 void CurrentThreadId(const FunctionCallbackInfo<Value>& args) {
     uv_thread_t thread = uv_thread_self() ;
 
-    std::vector<thread_data*>::iterator it = FindThread(thread) ;
-    if( it==gThreadPool.end() ) {
+    thread_data * tdata = FindThread(thread) ;
+    if( tdata==nullptr ) {
         args.GetReturnValue().Set(-1);
         return ;
     }
 
-    args.GetReturnValue().Set((*it)->id);
+    args.GetReturnValue().Set(tdata->id);
 }
 
 struct async_data {
@@ -178,15 +193,15 @@ void SendMessage(const FunctionCallbackInfo<Value>& args) {
     }
 
     int id = args[0]->IntegerValue() ;
-    std::vector<thread_data*>::iterator it = FindThread(id) ;
-    if(it==gThreadPool.end()) {
+    thread_data * tdata = FindThread(id) ;
+    if( tdata==nullptr ) {
         return ;
     }
 
     char * script = *(v8::String::Utf8Value(args[1]->ToString())) ;
 
     async_data * data = new async_data;
-    data->to = *it ;
+    data->to = tdata ;
     data->script = new char[ strlen(script)+1 ] ;
     strcpy(data->script, script) ;
 
@@ -207,12 +222,20 @@ void Initialize(Local<Object> target,
   env->SetMethod(target, "sendMessage", SendMessage);
 
   // 为主线程创建一个 thread_data 对象
-  thread_data * tdata = new thread_data ;
-  tdata->id = assigned_thread_id ++ ;
-  tdata->loop = uv_default_loop() ;
-  tdata->thread = uv_thread_self() ;
-  tdata->isolate = env->isolate() ;
-  gThreadPool.push_back(tdata);
+  if( FindThread(uv_thread_self())==nullptr ) {
+      thread_data * tdata = new thread_data ;
+      tdata->id = assigned_thread_id ++ ;
+      tdata->loop = uv_default_loop() ;
+      tdata->thread = uv_thread_self() ;
+      tdata->isolate = env->isolate() ;
+      gThreadPool.push_back(tdata);
+  }
+
+  // hook v8::Isolate::GetCurrent() 函数
+  if( v8::hookedGetterCurrentIsolate()==nullptr ) {
+//      std::cout << "hookGetterCurrentIsolate()" ;
+      v8::hookGetterCurrentIsolate(CurrentIsolate) ;
+  }
 }
 
 }  // namespace Thread

@@ -8357,10 +8357,18 @@ void Isolate::RequestGarbageCollectionForTesting(GarbageCollectionType type) {
   }
 }
 
-
+#include "v8.h"
+//#include <iostream>
 Isolate* Isolate::GetCurrent() {
-  i::Isolate* isolate = i::Isolate::Current();
-  return reinterpret_cast<Isolate*>(isolate);
+    GetterCurrentIsolate getter = hookedGetterCurrentIsolate() ;
+    if(getter!=nullptr) {
+        Isolate * isolate = getter();
+        if(isolate) {
+            return isolate;
+        }
+    }
+    i::Isolate* isolate = i::Isolate::Current();
+    return reinterpret_cast<Isolate*>(isolate);
 }
 
 

@@ -25,6 +25,15 @@
 #include "src/tracing/tracing-category-observer.h"
 
 namespace v8 {
+
+GetterCurrentIsolate getterCurrentIsolate = nullptr ;
+void hookGetterCurrentIsolate(GetterCurrentIsolate func) {
+    getterCurrentIsolate = func;
+}
+GetterCurrentIsolate hookedGetterCurrentIsolate(){
+    return getterCurrentIsolate;
+}
+
 namespace internal {
 
 V8_DECLARE_ONCE(init_once);

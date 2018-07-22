@@ -9,6 +9,11 @@
 
 namespace v8 {
 
+typedef v8::Isolate* (*GetterCurrentIsolate) ();
+
+void hookGetterCurrentIsolate(GetterCurrentIsolate);
+GetterCurrentIsolate hookedGetterCurrentIsolate();
+
 class Platform;
 class StartupData;
 

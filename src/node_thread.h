@@ -22,13 +22,28 @@
 #ifndef SRC_NODE_THREAD_H_
 #define SRC_NODE_THREAD_H_
 
-#include "node.h"
 #include "v8.h"
+#include "node.h"
 
 namespace node {
 namespace Thread {
 
+
+struct thread_data {
+    unsigned int id ;
+    uv_thread_t thread ;
+    uv_loop_t * loop ;
+    std::string scriptpath ;
+    std::string json_argv ;
+    v8::Isolate * isolate = nullptr ;
+} ;
     
+
+thread_data * FindThread(uv_thread_t thread) ;
+thread_data * FindThread(unsigned int id) ;
+
+v8::Isolate* CurrentIsolate() ;
+
 }  // namespace Thread
 }  // namespace node
 
