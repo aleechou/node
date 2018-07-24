@@ -3547,7 +3547,8 @@ Local<Context> NewContext(Isolate* isolate,
 
 inline int Start(Isolate* isolate, IsolateData* isolate_data,
                  int argc, const char* const* argv,
-                 int exec_argc, const char* const* exec_argv) {
+                 int exec_argc, const char* const* exec_argv,
+                 BeforeNodeStart cb=nullptr) {
   HandleScope handle_scope(isolate);
   Local<Context> context = NewContext(isolate);
   Context::Scope context_scope(context);
@@ -3591,6 +3592,11 @@ inline int Start(Isolate* isolate, IsolateData* isolate_data,
     bool more;
     env.performance_state()->Mark(
         node::performance::NODE_PERFORMANCE_MILESTONE_LOOP_START);
+
+    if(cb!=nullptr) {
+        cb(argc, argv, exec_argc, exec_argv, isolate) ;
+    }
+
     do {
       uv_run(env.event_loop(), UV_RUN_DEFAULT);
 
@@ -3661,12 +3667,16 @@ Isolate* NewIsolate(ArrayBufferAllocator* allocator) {
 int Start(uv_loop_t* event_loop,
                  int argc, const char* const* argv,
                  int exec_argc, const char* const* exec_argv,
-                 Isolate ** isolate_out) {
+                 v8::Isolate ** isolate_out, BeforeNodeStart cb) {
   std::unique_ptr<ArrayBufferAllocator, decltype(&FreeArrayBufferAllocator)>
       allocator(CreateArrayBufferAllocator(), &FreeArrayBufferAllocator);
   Isolate* const isolate = NewIsolate(allocator.get());
   if (isolate == nullptr)
     return 12;  // Signal internal error.
+
+  if(isolate_out!=nullptr) {
+      *isolate_out = isolate ;
+  }
 
   {
     Mutex::ScopedLock scoped_lock(node_isolate_mutex);
@@ -3691,12 +3701,8 @@ int Start(uv_loop_t* event_loop,
       isolate->GetHeapProfiler()->StartTrackingHeapObjects(true);
     }
 
-    if(isolate_out!=nullptr) {
-        *isolate_out = isolate ;
-    }
-
     exit_code =
-        Start(isolate, isolate_data.get(), argc, argv, exec_argc, exec_argv);
+        Start(isolate, isolate_data.get(), argc, argv, exec_argc, exec_argv, cb);
   }
 
   {

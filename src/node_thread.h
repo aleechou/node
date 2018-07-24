@@ -33,9 +33,15 @@ struct thread_data {
     unsigned int id ;
     uv_thread_t thread ;
     uv_loop_t * loop ;
-    std::string scriptpath ;
-    std::string json_argv ;
+    std::string script ;
+    std::string script_argv ;
+    bool by_path = true ;
     v8::Isolate * isolate = nullptr ;
+
+    uv_mutex_t message_mutex;
+    uv_async_t message_async;
+    std::vector< std::string > messages ;
+    unsigned short max_message_length = 100 ;
 } ;
     
 
