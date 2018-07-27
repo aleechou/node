@@ -97,7 +97,7 @@ static void newthread(void* arg) {
     // 执行文件
     if(tdata->by_path) {
         // nodejs 要求 argv 数组在连续的内存上
-        char * argvdata = new char[6+tdata->script.length()+tdata->script_argv.length()] ;
+        char * argvdata = new char[7+tdata->script.length()+tdata->script_argv.length()] ;
         strcpy(argvdata, "node") ;
         strcpy(argvdata+5, tdata->script.data()) ;
         strcpy(argvdata+5+tdata->script.length()+1, tdata->script_argv.data()) ;
