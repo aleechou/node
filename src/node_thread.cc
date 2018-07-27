@@ -174,7 +174,9 @@ void HasNativeModuleLoaded(const FunctionCallbackInfo<Value>& args) {
         std::cerr << "bad argv" << std::endl ;
         return ;
     }
-    char * moduleName = *(v8::String::Utf8Value(args[0]->ToString())) ;
+    v8::String::Utf8Value strModuleName(args[0]->ToString()) ;
+    char * moduleName = *(strModuleName) ;
+
     node_module* nm = node::get_addon_module(moduleName) ;
 
     args.GetReturnValue().Set(nm!=nullptr) ;
@@ -185,7 +187,9 @@ void InitNativeModule(const FunctionCallbackInfo<Value>& args) {
         std::cerr << "bad argv" << std::endl ;
         return ;
     }
-    char * moduleName = *(v8::String::Utf8Value(args[0]->ToString())) ;
+
+    v8::String::Utf8Value strModuleName(args[0]->ToString()) ;
+    char * moduleName = *(strModuleName) ;
 
     node_module* nm = node::get_addon_module(moduleName) ;
     if(nm==nullptr) {
