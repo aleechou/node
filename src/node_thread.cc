@@ -338,6 +338,11 @@ void Initialize(Local<Object> target,
     env->SetMethod(target, "usec", USec);
 
 
+    // hook v8::Isolate::GetCurrent() 函数
+    if( v8::hookedGetterCurrentIsolate()==nullptr ) {
+        v8::hookGetterCurrentIsolate(CurrentIsolate) ;
+    }
+
     // 为主线程创建一个 thread_data 对象
     if( FindThread(uv_thread_self())==nullptr ) {
         thread_data * tdata = new thread_data ;
@@ -347,11 +352,6 @@ void Initialize(Local<Object> target,
         tdata->isolate = env->isolate() ;
 
         gThreadPool.push_back(tdata);
-    }
-
-    // hook v8::Isolate::GetCurrent() 函数
-    if( v8::hookedGetterCurrentIsolate()==nullptr ) {
-        v8::hookGetterCurrentIsolate(CurrentIsolate) ;
     }
 }
 
