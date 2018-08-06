@@ -233,7 +233,7 @@ void SendMessage(const FunctionCallbackInfo<Value>& args) {
         return ;
     }
 
-    int id = args[0]->IntegerValue() ;
+    unsigned int id = args[0]->IntegerValue() ;
     thread_data * tdata = FindThread(id) ;
     if( tdata==nullptr ) {
         std::cerr << "thread(id:"<<id<<") doesn't exists." << std::endl ;
