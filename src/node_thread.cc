@@ -162,7 +162,6 @@ void Run(const FunctionCallbackInfo<Value>& args) {
         tdata->by_path = false ;
     }
 
-
     // 启动线程结束
     uv_thread_create(&tdata->thread, newthread, (void*)tdata);
 
@@ -226,6 +225,16 @@ void CurrentThreadId(const FunctionCallbackInfo<Value>& args) {
     args.GetReturnValue().Set(tdata->id);
 }
 
+void IsRunning(const FunctionCallbackInfo<Value>& args) {
+    if( args.Length()<1 || !args[0]->IsInt32() ){
+        std::cerr << "bad argv" << std::endl ;
+        return ;
+    }
+
+    unsigned int id = args[0]->IntegerValue() ;
+    bool running = FindThread(id)!=nullptr ;
+    args.GetReturnValue().Set(v8::Boolean::New(args.GetIsolate(), running)) ;
+}
 
 void SendMessage(const FunctionCallbackInfo<Value>& args) {
     if( args.Length()<2 || !args[0]->IsInt32() || !args[1]->IsString()){
@@ -327,6 +336,7 @@ void Initialize(Local<Object> target,
     Environment* env = Environment::GetCurrent(context);
     env->SetMethod(target, "run", Run);
     env->SetMethod(target, "currentThreadId", CurrentThreadId);
+    env->SetMethod(target, "isRunning", IsRunning);
     env->SetMethod(target, "initNativeModule", InitNativeModule);
     env->SetMethod(target, "hasNativeModuleLoaded", HasNativeModuleLoaded);
     env->SetMethod(target, "sendMessage", SendMessage);
