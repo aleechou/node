@@ -86,7 +86,7 @@ js 源文件： https://github.com/aleechou/threadable-node/blob/threadable/lib/
         * prototype.isRunning()
 
 
-## 静态函数
+## 静态函数 (Static Functions)
 
 * JS属性:  Object `thread.argv`
 
@@ -165,7 +165,7 @@ js 源文件： https://github.com/aleechou/threadable-node/blob/threadable/lib/
     退出由 `thread.alive()` 开启的线程空转循环. 当线程没有任何未决的事件时,线程自动退出
     
 
-## 线程类 thread.Thread
+## 线程类 (Class: thread.Thread)
 
 * JS类构造函数： `Thread`(int tid)
 
@@ -199,7 +199,7 @@ js 源文件： https://github.com/aleechou/threadable-node/blob/threadable/lib/
 
 
 
-## 杂项函数
+## 杂项函数 (Misc Functions)
 exports.sleep = buildin.sleep
 exports.msleep = buildin.msleep
 exports.usleep = buildin.usleep
