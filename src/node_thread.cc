@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 
-#define out std::cout << "[" << CurrentIsolate() << "]" <<
+#define out std::cout << "(@" << __LINE__ << ") " <<
 #define nl << std::endl ;
 
 namespace node {
@@ -80,12 +80,20 @@ void async_message_awake(uv_async_t* async) {
     v8::Script::Compile ( v8::String::NewFromUtf8(isolate, "global.__$thread_message_pump && global.__$thread_message_pump()") )->Run();
 }
 
-void init_thread_data(thread_data * tdata, uv_loop_t * loop) {
+thread_data * create_thread_data(uv_loop_t * loop) {
+    thread_data * tdata = new thread_data ;
     tdata->id = assigned_thread_id ++ ;
     tdata->loop = loop ;
 
+    // 创建消息队列( 0-5. 默认3)
+    for(int p=0; p<6; p++) {
+        tdata->messageQueues.push_back( std::vector<std::string>() );
+    }
+
     uv_mutex_init(&tdata->message_mutex) ;
     tdata->message_async.data = nullptr ;
+
+    return tdata ;
 }
 
 static void newthread(void* arg) {
@@ -140,8 +148,7 @@ static void newthread(void* arg) {
 
 void Run(const FunctionCallbackInfo<Value>& args) {
     
-    thread_data * tdata = new thread_data ;
-    init_thread_data(tdata, new uv_loop_t) ;
+    thread_data * tdata = create_thread_data(new uv_loop_t) ;
     gThreadPool.push_back(tdata);
 
     if( args.Length()>=1 && args[0]->IsString() ){
@@ -232,11 +239,20 @@ void SendMessage(const FunctionCallbackInfo<Value>& args) {
         std::cerr << "bad argv" << std::endl ;
         return ;
     }
-
-    int id = args[0]->IntegerValue() ;
+    unsigned int id = args[0]->IntegerValue() ;
     thread_data * tdata = FindThread(id) ;
     if( tdata==nullptr ) {
         std::cerr << "thread(id:"<<id<<") doesn't exists." << std::endl ;
+        return ;
+    }
+
+    // 消息优先级
+    int priority = 3 ;
+    if( args.Length()>=3 && args[2]->IsInt32() ){
+        priority = args[2]->ToInt32(args.GetIsolate())->Value() ;
+    }
+    if(priority<0 || priority>5) {
+        std::cerr << "bad priority(0 >= priority <=5)" << std::endl ;
         return ;
     }
 
@@ -248,10 +264,10 @@ void SendMessage(const FunctionCallbackInfo<Value>& args) {
     uv_mutex_lock(&tdata->message_mutex) ;
 
     // 长度超出，弹回消息
-    if( tdata->max_message_length<0 || tdata->messages.size()<tdata->max_message_length ){
+    if( tdata->max_message_length<0 || tdata->messageQueues[priority].size()<tdata->max_message_length ){
 
         // 插入消息队列
-        tdata->messages.push_back(msg);
+        tdata->messageQueues[priority].push_back(msg);
 
 //        // 唤醒目标线程
 //        if(tdata->message_async.data != nullptr)
@@ -265,9 +281,6 @@ void SendMessage(const FunctionCallbackInfo<Value>& args) {
     // 解锁
     uv_mutex_unlock(&tdata->message_mutex) ;
 
-//    std::cout << std::endl ;
-//    out "SendMessage() to " << id << " " << ((unsigned long)tdata) << ", msg queue:" << tdata->messages.size() nl
-
     args.GetReturnValue().Set(v8::Boolean::New(args.GetIsolate(), suc)) ;
 
 }
@@ -279,12 +292,14 @@ void PopMessage(const FunctionCallbackInfo<Value>& args) {
     // 锁定消息队列
     uv_mutex_lock(&tdata->message_mutex) ;
 
-    if( tdata->messages.size() ) {
-        args.GetReturnValue().Set( v8::String::NewFromUtf8(args.GetIsolate(), tdata->messages[0].c_str()) ) ;
-        tdata->messages.erase(tdata->messages.begin()) ;
-    }
-    else {
-        args.GetReturnValue().Set( v8::Undefined(args.GetIsolate())) ;
+    for(int priority=5; priority>=0; priority--) {  // 优先级由高到低
+
+        if( tdata->messageQueues[priority].size() ) {
+            args.GetReturnValue().Set( v8::String::NewFromUtf8(args.GetIsolate(), tdata->messageQueues[priority][0].c_str()) ) ;
+            tdata->messageQueues[priority].erase(tdata->messageQueues[priority].begin()) ;
+            break ;
+        }
+
     }
 
     // 解锁
@@ -345,9 +360,7 @@ void Initialize(Local<Object> target,
 
     // 为主线程创建一个 thread_data 对象
     if( FindThread(uv_thread_self())==nullptr ) {
-        thread_data * tdata = new thread_data ;
-
-        init_thread_data(tdata, uv_default_loop());
+        thread_data * tdata = create_thread_data(uv_default_loop());
         tdata->thread = uv_thread_self() ;
         tdata->isolate = env->isolate() ;
 

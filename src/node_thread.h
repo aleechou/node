@@ -40,7 +40,7 @@ struct thread_data {
 
     uv_mutex_t message_mutex;
     uv_async_t message_async;
-    std::vector< std::string > messages ;
+    std::vector<std::vector< std::string > > messageQueues ;
     unsigned short max_message_length = 100 ;
 } ;
     
