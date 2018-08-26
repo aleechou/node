@@ -1,4 +1,4 @@
-const {thread} = require('../../src/native')
+const thread = require('thread')
 
 thread.message('number', (num)=>{
     console.log("received number:", num)

@@ -244,17 +244,27 @@ void IsRunning(const FunctionCallbackInfo<Value>& args) {
 }
 
 void SendMessage(const FunctionCallbackInfo<Value>& args) {
-    if( args.Length()<2 || !args[0]->IsInt32() || !args[1]->IsString()){
-        std::cerr << "bad argv" << std::endl ;
+    if( args.Length()<2 ){
+        std::cerr << "buildin.sendMessage()'s arguments number must more than 2" << std::endl ;
         return ;
     }
-
+    if( !args[0]->IsInt32() ) {
+        std::cerr << "buildin.sendMessage()'s first argument must be a int" << std::endl ;
+        return ;
+    }
     unsigned int id = args[0]->IntegerValue() ;
     thread_data * tdata = FindThread(id) ;
     if( tdata==nullptr ) {
         std::cerr << "thread(id:"<<id<<") doesn't exists." << std::endl ;
         return ;
     }
+
+    if( !args[1]->IsString() ) {
+        std::cerr << "buildin.sendMessage()'s second argument must be a string" << std::endl ;
+        return ;
+    }
+    std::string msg = std::string(*v8::String::Utf8Value(args[1]->ToString())) ;
+
 
     // 消息优先级
     int priority = 3 ;
@@ -265,8 +275,6 @@ void SendMessage(const FunctionCallbackInfo<Value>& args) {
         std::cerr << "bad priority(0 >= priority <=5)" << std::endl ;
         return ;
     }
-
-    std::string msg = std::string(*v8::String::Utf8Value(args[1]->ToString())) ;
 
     bool suc = false ;
 

@@ -1,6 +1,6 @@
-const {thread} = require('../../src/native')
+const thread = require('thread')
 
-var worker = thread.run('thread.js')
+var worker = thread.run(__dirname+'/thread.js')
 
 worker.on('timer', function(t){
     console.log('timer:', t, 'from tid:', this.id)

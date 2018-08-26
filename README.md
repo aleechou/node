@@ -1,6 +1,6 @@
 这是一个多线程版本的 Nodejs，适合计算型的项目(例如：opencv4nodejs : https://github.com/justadudewhohacks/opencv4nodejs)。
 
-从 nodejs 10.x fork 出来。
+从 NodeJS `10.x` fork 出来, 和 NodeJS 完全兼容，可以替代原本 NodeJS。
 
 每个 js 线程都是独立的 v8::Isolate，不共享任何 js 资源；但是 c++ module 中的资源是可以共享的，可以使用一些c++技巧，在不同 js 线程间共享资源。例如在保证安全的情况下，将内存指针在不同 js 线程之间传递。
 
@@ -190,13 +190,36 @@ js 源文件： https://github.com/aleechou/threadable-node/blob/threadable/lib/
     > 线程消息优先级的例子：[https://github.com/aleechou/threadable-node/tree/threadable/demo/thread-priority]
 
 
-* JS类方法：void `Thread.on`(string eventName, function callback)
-* JS类方法：void `Thread.once`(string messageName, function callback)
+* JS类方法：void `Thread.on`([int priority,] string eventName, function callback)
+* JS类方法：void `Thread.once`([int priority,] string messageName, function callback)
 
     订阅该线程的事件，callback 参数和 thread.message() 函数相同。
 
+    参数 `priority` 的用法同上文 `Thread.send()` 方法。较高优先级的 handle 会优先被触发。
+
     > 线程事件的例子：[https://github.com/aleechou/threadable-node/tree/threadable/demo/thread-event]
 
+### 线程 消息 和 事件
+
+消息(send/message) 和 事件(emit/on/once) 这几个函数比较容易混淆：有的是 模块函数(静态)，有的是 类方法(Thread类)，需要注意。
+
+* 需要针对特定线程的操作，为 Thread类的方法： 
+
+    * 向目标线程发送消息 send()
+
+    * 订阅目标线程的时间 on() 和 once()
+
+* 不针对特定线程的操作，为 模块函数:
+
+    * 接收来自其他线程的消息 message()
+
+    * 在当前线程触发事件 emit()
+
+
+|       | 消息 (send/message) | 事件 (emit/on/once) |
+| ------ | ------ | ------ |
+| 发送   | 向指定线程 [`对象方法`]<br> Thread.prototype.send() | 向所有线程 [<b>模块函数</b>]<br> thread.emit() |
+| 接收   | 从所有线程 [<b>模块函数</b>]<br> thread.mesage() | 监听指定线程 [`对象方法`]<br> Thread.prototype.emit() |
 
 
 ## 杂项函数 (Misc Functions)

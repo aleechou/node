@@ -1,5 +1,4 @@
-const {thread} = require('../../src/native')
-
+const thread = require('thread')
 
 setInterval(()=>{
 
