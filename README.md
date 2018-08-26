@@ -199,7 +199,7 @@ js 源文件： https://github.com/aleechou/threadable-node/blob/threadable/lib/
 
 
 
-### 杂项函数
+## 杂项函数
 exports.sleep = buildin.sleep
 exports.msleep = buildin.msleep
 exports.usleep = buildin.usleep
