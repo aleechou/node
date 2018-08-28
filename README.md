@@ -83,6 +83,7 @@ js 源文件： https://github.com/aleechou/threadable-node/blob/threadable/lib/
         * prototype.exit()
         * prototype.on()
         * prototype.once()
+        * prototype.off()
         * prototype.isRunning()
 
 
@@ -190,14 +191,23 @@ js 源文件： https://github.com/aleechou/threadable-node/blob/threadable/lib/
     > 线程消息优先级的例子：[https://github.com/aleechou/threadable-node/tree/threadable/demo/thread-priority]
 
 
-* JS类方法：void `Thread.on`([int priority,] string eventName, function callback)
-* JS类方法：void `Thread.once`([int priority,] string messageName, function callback)
+* JS类方法：object `Thread.on`([int priority,] string eventName, function callback)
+* JS类方法：object `Thread.once`([int priority,] string messageName, function callback)
 
     订阅该线程的事件，callback 参数和 thread.message() 函数相同。
 
     参数 `priority` 的用法同上文 `Thread.send()` 方法。较高优先级的 handle 会优先被触发。
 
+    返回一个可以包含了两个方法的对象, 分别可以用来停止该事件接听行为, 以及恢复监听, 这两个方法可以反复调用: 
+    ```javascript
+    {
+        "off": function(){} , // 停止监听事件
+        "on": function(){} ,  // 继续监听事件
+    }
+    ```
+
     > 线程事件的例子：[https://github.com/aleechou/threadable-node/tree/threadable/demo/thread-event]
+
 
 ### 线程 消息 和 事件
 

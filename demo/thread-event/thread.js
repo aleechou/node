@@ -1,3 +1,4 @@
+// const thread = require(__dirname+'/../../lib/thread')
 const thread = require('thread')
 
 setInterval(()=>{

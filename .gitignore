@@ -132,3 +132,4 @@ deps/v8/src/Release/
 deps/v8/src/inspector/Debug/
 deps/v8/src/inspector/Release/
 deps/v8/third_party/eu-strip/
+threadable-node.pro.user
