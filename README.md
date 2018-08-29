@@ -177,26 +177,28 @@ js 源文件： https://github.com/aleechou/threadable-node/blob/threadable/lib/
 
     检查该线程是否退出
 
-* JS类方法：bool,undefined `Thread.send`([int priority,] string messageName, ...argv)
+* JS类方法：bool,undefined `Thread.send`(string messageName, ...argv)
 
     向线程发送消息
 
     * 如果 thread.id 错误，该线程不存在，或者已经结束，则返回 `undefined`；
     * 如果目标线程消息队列满，返回 `false`
     * 成功写入目标线程的消息队列，返回 `true`；但不保证被处理，目标线程没有对应的 listener 函数，则消被丢弃
-    * 参数 `priority` 是可以省略的，如果第一个参数为整数，则表示消息的优先级， 否则优先级默认为3; `priority` 的范围为 0-5 ，数值大代表优先级高，线程从高到底先后处理队列里的消息
 
     > 注意：在开发 c++ module 项目时，如果消息里包含堆上的内容，务必保证被正确处理，以免造成内存泄露
 
     > 线程消息优先级的例子：[https://github.com/aleechou/threadable-node/tree/threadable/demo/thread-priority]
 
 
-* JS类方法：object `Thread.on`([int priority,] string eventName, function callback)
-* JS类方法：object `Thread.once`([int priority,] string messageName, function callback)
+* JS类方法：bool,undefined `Thread.sendWithPriority`(int priority, string messageName, ...argv)
+
+    相比起 `send()` , 本方法增加了一个参数: `priority` ,表示消息的优先级， (`send()`方法的优先级为3); `priority` 的范围为 0-5 ，数值大代表优先级高，线程从高到底先后处理队列里的消息
+
+
+* JS类方法：object `Thread.on`(string eventName, function callback)
+* JS类方法：object `Thread.once`(string messageName, function callback)
 
     订阅该线程的事件，callback 参数和 thread.message() 函数相同。
-
-    参数 `priority` 的用法同上文 `Thread.send()` 方法。较高优先级的 handle 会优先被触发。
 
     返回一个可以包含了两个方法的对象, 分别可以用来停止该事件接听行为, 以及恢复监听, 这两个方法可以反复调用: 
     ```javascript
@@ -207,6 +209,12 @@ js 源文件： https://github.com/aleechou/threadable-node/blob/threadable/lib/
     ```
 
     > 线程事件的例子：[https://github.com/aleechou/threadable-node/tree/threadable/demo/thread-event]
+
+
+* JS类方法：object `Thread.onWithPriority`(int priority, string eventName, function callback)
+* JS类方法：object `Thread.onceWithPriority`(int priority, string messageName, function callback)
+
+    on()/once() 方法的带优先级版本, 参数 `priority` 的用法同 `sendWithPriority()`
 
 
 ### 线程 消息 和 事件
