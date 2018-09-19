@@ -104,7 +104,9 @@ Worker::Worker(Environment* env, Local<Object> wrap)
     env_->set_worker_context(this);
     env_->set_thread_id(thread_id_);
 
-    env_->Start(0, nullptr, 0, nullptr, env->profiler_idle_notifier_started());
+    env_->Start(std::vector<std::string>{},
+                std::vector<std::string>{},
+                env->profiler_idle_notifier_started());
   }
 
   // The new isolate won't be bothered on this thread again.
@@ -287,22 +289,21 @@ void Worker::JoinThread() {
 }
 
 void Worker::OnThreadStopped() {
-  Mutex::ScopedLock lock(mutex_);
-  scheduled_on_thread_stopped_ = false;
-
-  Debug(this, "Worker %llu thread stopped", thread_id_);
-
   {
-    Mutex::ScopedLock stopped_lock(stopped_mutex_);
-    CHECK(stopped_);
+    Mutex::ScopedLock lock(mutex_);
+    scheduled_on_thread_stopped_ = false;
+
+    Debug(this, "Worker %llu thread stopped", thread_id_);
+
+    {
+      Mutex::ScopedLock stopped_lock(stopped_mutex_);
+      CHECK(stopped_);
+    }
+
+    CHECK_EQ(child_port_, nullptr);
+    parent_port_ = nullptr;
   }
 
-  CHECK_EQ(child_port_, nullptr);
-  parent_port_ = nullptr;
-
-  // It's okay to join the thread while holding the mutex because
-  // OnThreadStopped means it's no longer doing any work that might grab it
-  // and really just silently exiting.
   JoinThread();
 
   {
@@ -369,6 +370,7 @@ void Worker::StopThread(const FunctionCallbackInfo<Value>& args) {
   Worker* w;
   ASSIGN_OR_RETURN_UNWRAP(&w, args.This());
 
+  Debug(w, "Worker %llu is getting stopped by parent", w->thread_id_);
   w->Exit(1);
   w->JoinThread();
 }

@@ -17,6 +17,7 @@
     'node_use_bundled_v8%': 'true',
     'node_module_version%': '',
     'node_with_ltcg%': '',
+    'node_use_pch%': 'false',
 
     'node_tag%': '',
     'uv_library%': 'static_library',
@@ -28,7 +29,7 @@
 
     # Reset this number to 0 on major V8 upgrades.
     # Increment by one for each non-official patch applied to deps/v8.
-    'v8_embedder_string': '-node.15',
+    'v8_embedder_string': '-node.24',
 
     # Enable disassembler for `--print-code` v8 options
     'v8_enable_disassembler': 1,
@@ -446,7 +447,6 @@
           'GCC_ENABLE_CPP_EXCEPTIONS': 'NO',        # -fno-exceptions
           'GCC_ENABLE_CPP_RTTI': 'NO',              # -fno-rtti
           'GCC_ENABLE_PASCAL_STRINGS': 'NO',        # No -mpascal-strings
-          'GCC_THREADSAFE_STATICS': 'NO',           # -fno-threadsafe-statics
           'PREBINDING': 'NO',                       # No -Wl,-prebind
           'MACOSX_DEPLOYMENT_TARGET': '10.7',       # -mmacosx-version-min=10.7
           'USE_HEADERMAP': 'NO',

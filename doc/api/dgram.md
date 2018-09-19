@@ -208,6 +208,7 @@ socket.bind({
 <!-- YAML
 added: v0.1.99
 -->
+* `callback` {Function} Called when the socket has been closed.
 
 Close the underlying socket and stop listening for data on it. If a callback is
 provided, it is added as a listener for the [`'close'`][] event.
@@ -258,7 +259,7 @@ Calling `socket.ref()` multiples times will have no additional effect.
 The `socket.ref()` method returns a reference to the socket so calls can be
 chained.
 
-### socket.send(msg, [offset, length,] port [, address] [, callback])
+### socket.send(msg[, offset, length], port[, address][, callback])
 <!-- YAML
 added: v0.1.99
 changes:
@@ -545,8 +546,7 @@ chained.
 ### Change to asynchronous `socket.bind()` behavior
 
 As of Node.js v0.10, [`dgram.Socket#bind()`][] changed to an asynchronous
-execution model. Legacy code that assumes synchronous behavior, as in the
-following example:
+execution model. Legacy code would use synchronous behavior:
 
 ```js
 const s = dgram.createSocket('udp4');
@@ -554,8 +554,8 @@ s.bind(1234);
 s.addMembership('224.0.0.114');
 ```
 
-Must be changed to pass a callback function to the [`dgram.Socket#bind()`][]
-function:
+Such legacy code would need to be changed to pass a callback function to the
+[`dgram.Socket#bind()`][] function:
 
 ```js
 const s = dgram.createSocket('udp4');

@@ -34,8 +34,8 @@
 #include "uv.h"
 #include "v8.h"
 #include "node.h"
+#include "node_options.h"
 #include "node_http2_state.h"
-#include "tracing/agent.h"
 
 #include <list>
 #include <stdint.h>
@@ -55,6 +55,10 @@ namespace performance {
 class performance_state;
 }
 
+namespace tracing {
+class AgentWriterHandle;
+}
+
 namespace worker {
 class Worker;
 }
@@ -62,23 +66,15 @@ class Worker;
 namespace loader {
 class ModuleWrap;
 
-struct Exists {
-  enum Bool { Yes, No };
-};
-
-struct IsValid {
-  enum Bool { Yes, No };
-};
-
-struct HasMain {
-  enum Bool { Yes, No };
-};
-
 struct PackageConfig {
-  const Exists::Bool exists;
-  const IsValid::Bool is_valid;
-  const HasMain::Bool has_main;
-  const std::string main;
+  enum class Exists { Yes, No };
+  enum class IsValid { Yes, No };
+  enum class HasMain { Yes, No };
+
+  Exists exists;
+  IsValid is_valid;
+  HasMain has_main;
+  std::string main;
 };
 }  // namespace loader
 
@@ -116,11 +112,13 @@ struct PackageConfig {
 // for the sake of convenience.
 #define PER_ISOLATE_SYMBOL_PROPERTIES(V)                                      \
   V(handle_onclose_symbol, "handle_onclose")                                  \
+  V(owner_symbol, "owner")                                                    \
 
 // Strings are per-isolate primitives but Environment proxies them
 // for the sake of convenience.  Strings should be ASCII-only.
 #define PER_ISOLATE_STRING_PROPERTIES(V)                                      \
   V(address_string, "address")                                                \
+  V(aliases_string, "aliases")                                                \
   V(args_string, "args")                                                      \
   V(async, "async")                                                           \
   V(async_ids_stack_string, "async_ids_stack")                                \
@@ -152,12 +150,14 @@ struct PackageConfig {
   V(dns_soa_string, "SOA")                                                    \
   V(dns_srv_string, "SRV")                                                    \
   V(dns_txt_string, "TXT")                                                    \
+  V(duration_string, "duration")                                              \
   V(emit_warning_string, "emitWarning")                                       \
   V(exchange_string, "exchange")                                              \
   V(encoding_string, "encoding")                                              \
-  V(enter_string, "enter")                                                    \
   V(entries_string, "entries")                                                \
+  V(entry_type_string, "entryType")                                           \
   V(env_pairs_string, "envPairs")                                             \
+  V(env_var_settings_string, "envVarSettings")                                \
   V(errno_string, "errno")                                                    \
   V(error_string, "error")                                                    \
   V(exit_code_string, "exitCode")                                             \
@@ -178,6 +178,7 @@ struct PackageConfig {
   V(get_shared_array_buffer_id_string, "_getSharedArrayBufferId")             \
   V(gid_string, "gid")                                                        \
   V(handle_string, "handle")                                                  \
+  V(help_text_string, "helpText")                                             \
   V(homedir_string, "homedir")                                                \
   V(host_string, "host")                                                      \
   V(hostmaster_string, "hostmaster")                                          \
@@ -192,11 +193,10 @@ struct PackageConfig {
   V(issuer_string, "issuer")                                                  \
   V(issuercert_string, "issuerCertificate")                                   \
   V(kill_signal_string, "killSignal")                                         \
+  V(kind_string, "kind")                                                      \
   V(mac_string, "mac")                                                        \
   V(main_string, "main")                                                      \
   V(max_buffer_string, "maxBuffer")                                           \
-  V(max_semi_space_size_string, "maxSemiSpaceSize")                           \
-  V(max_old_space_size_string, "maxOldSpaceSize")                             \
   V(message_string, "message")                                                \
   V(message_port_string, "messagePort")                                       \
   V(message_port_constructor_string, "MessagePort")                           \
@@ -231,15 +231,14 @@ struct PackageConfig {
   V(onsettings_string, "onsettings")                                          \
   V(onshutdown_string, "onshutdown")                                          \
   V(onsignal_string, "onsignal")                                              \
-  V(onstop_string, "onstop")                                                  \
   V(onstreamclose_string, "onstreamclose")                                    \
   V(ontrailers_string, "ontrailers")                                          \
   V(onunpipe_string, "onunpipe")                                              \
   V(onwrite_string, "onwrite")                                                \
   V(openssl_error_stack, "opensslErrorStack")                                 \
+  V(options_string, "options")                                                \
   V(output_string, "output")                                                  \
   V(order_string, "order")                                                    \
-  V(owner_string, "owner")                                                    \
   V(parse_error_string, "Parse Error")                                        \
   V(password_string, "password")                                              \
   V(path_string, "path")                                                      \
@@ -279,6 +278,7 @@ struct PackageConfig {
   V(sni_context_string, "sni_context")                                        \
   V(source_string, "source")                                                  \
   V(stack_string, "stack")                                                    \
+  V(start_time_string, "startTime")                                           \
   V(status_string, "status")                                                  \
   V(stdio_string, "stdio")                                                    \
   V(subject_string, "subject")                                                \
@@ -293,7 +293,6 @@ struct PackageConfig {
   V(uid_string, "uid")                                                        \
   V(unknown_string, "<unknown>")                                              \
   V(url_string, "url")                                                        \
-  V(user_string, "user")                                                      \
   V(username_string, "username")                                              \
   V(valid_from_string, "valid_from")                                          \
   V(valid_to_string, "valid_to")                                              \
@@ -356,7 +355,6 @@ struct PackageConfig {
   V(tls_wrap_constructor_function, v8::Function)                              \
   V(tty_constructor_template, v8::FunctionTemplate)                           \
   V(udp_constructor_function, v8::Function)                                   \
-  V(vm_parsing_context_symbol, v8::Symbol)                                    \
   V(url_constructor_function, v8::Function)                                   \
   V(write_wrap_template, v8::ObjectTemplate)
 
@@ -371,6 +369,7 @@ class IsolateData {
   inline uv_loop_t* event_loop() const;
   inline uint32_t* zero_fill_field() const;
   inline MultiIsolatePlatform* platform() const;
+  inline std::shared_ptr<PerIsolateOptions> options();
 
 #define VP(PropertyName, StringValue) V(v8::Private, PropertyName)
 #define VY(PropertyName, StringValue) V(v8::Symbol, PropertyName)
@@ -404,6 +403,7 @@ class IsolateData {
   uv_loop_t* const event_loop_;
   uint32_t* const zero_fill_field_;
   MultiIsolatePlatform* platform_;
+  std::shared_ptr<PerIsolateOptions> options_;
 
   DISALLOW_COPY_AND_ASSIGN(IsolateData);
 };
@@ -510,13 +510,14 @@ class Environment {
     AsyncCallbackScope() = delete;
     explicit AsyncCallbackScope(Environment* env);
     ~AsyncCallbackScope();
-    inline bool in_makecallback() const;
 
    private:
     Environment* env_;
 
     DISALLOW_COPY_AND_ASSIGN(AsyncCallbackScope);
   };
+
+  inline size_t makecallback_depth() const;
 
   class ImmediateInfo {
    public:
@@ -587,13 +588,11 @@ class Environment {
 
   Environment(IsolateData* isolate_data,
               v8::Local<v8::Context> context,
-              tracing::Agent* tracing_agent);
+              tracing::AgentWriterHandle* tracing_agent_writer);
   ~Environment();
 
-  void Start(int argc,
-             const char* const* argv,
-             int exec_argc,
-             const char* const* exec_argv,
+  void Start(const std::vector<std::string>& args,
+             const std::vector<std::string>& exec_args,
              bool start_profiler_idle_notifier);
 
   typedef void (*HandleCleanupCb)(Environment* env,
@@ -625,7 +624,7 @@ class Environment {
   inline bool profiler_idle_notifier_started() const;
 
   inline v8::Isolate* isolate() const;
-  inline tracing::Agent* tracing_agent() const;
+  inline tracing::AgentWriterHandle* tracing_agent_writer() const;
   inline uv_loop_t* event_loop() const;
   inline uint32_t watched_providers() const;
 
@@ -670,7 +669,8 @@ class Environment {
 
   std::unordered_multimap<int, loader::ModuleWrap*> module_map;
 
-  std::unordered_map<std::string, loader::PackageConfig> package_json_cache;
+  std::unordered_map<std::string, const loader::PackageConfig>
+      package_json_cache;
 
   inline double* heap_statistics_buffer() const;
   inline void set_heap_statistics_buffer(double* pointer);
@@ -863,6 +863,8 @@ class Environment {
                                  v8::EmbedderGraph* graph,
                                  void* data);
 
+  inline std::shared_ptr<EnvironmentOptions> options();
+
  private:
   inline void CreateImmediate(native_immediate_callback cb,
                               void* data,
@@ -874,7 +876,7 @@ class Environment {
 
   v8::Isolate* const isolate_;
   IsolateData* const isolate_data_;
-  tracing::Agent* const tracing_agent_;
+  tracing::AgentWriterHandle* const tracing_agent_writer_;
   uv_check_t immediate_check_handle_;
   uv_idle_t immediate_idle_handle_;
   uv_prepare_t idle_prepare_handle_;
@@ -891,6 +893,8 @@ class Environment {
   bool emit_env_nonstring_warning_;
   size_t makecallback_cntr_;
   std::vector<double> destroy_async_id_list_;
+
+  std::shared_ptr<EnvironmentOptions> options_;
 
   AliasedBuffer<uint32_t, v8::Uint32Array> should_abort_on_uncaught_toggle_;
   int should_not_abort_scope_counter_ = 0;

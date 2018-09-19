@@ -327,6 +327,7 @@ class Debug {
   static int ArchiveSpacePerThread();
   void FreeThreadResources() { }
   void Iterate(RootVisitor* v);
+  void InitThread(const ExecutionAccess& lock) { ThreadInit(); }
 
   bool CheckExecutionState(int id) {
     return CheckExecutionState() && break_id() == id;
@@ -345,9 +346,11 @@ class Debug {
   void ApplySideEffectChecks(Handle<DebugInfo> debug_info);
   void ClearSideEffectChecks(Handle<DebugInfo> debug_info);
 
-  bool PerformSideEffectCheck(Handle<JSFunction> function);
+  bool PerformSideEffectCheck(Handle<JSFunction> function,
+                              Handle<Object> receiver);
   bool PerformSideEffectCheckForCallback(Handle<Object> callback_info);
   bool PerformSideEffectCheckAtBytecode(InterpretedFrame* frame);
+  bool PerformSideEffectCheckForObject(Handle<Object> object);
 
   // Flags and states.
   DebugScope* debugger_entry() {
@@ -534,6 +537,8 @@ class Debug {
   // Used for side effect check to mark temporary objects.
   class TemporaryObjectsTracker;
   std::unique_ptr<TemporaryObjectsTracker> temporary_objects_;
+
+  Handle<RegExpMatchInfo> regexp_match_info_;
 
   // Used to collect histogram data on debugger feature usage.
   DebugFeatureTracker feature_tracker_;

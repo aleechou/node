@@ -85,6 +85,10 @@ thread_data * create_thread_data(uv_loop_t * loop) {
     tdata->id = assigned_thread_id ++ ;
     tdata->loop = loop ;
 
+    // 参数
+    tdata->args.push_back("node") ;
+    tdata->exec_args.push_back("child") ;
+
     // 创建消息队列( 0-5. 默认3)
     for(int p=0; p<6; p++) {
         tdata->messageQueues.push_back( std::vector<std::string>() );
@@ -104,38 +108,28 @@ static void newthread(void* arg) {
 
     // 执行文件
     if(tdata->by_path) {
-        // nodejs 要求 argv 数组在连续的内存上
-        char * argvdata = new char[7+tdata->script.length()+tdata->script_argv.length()] ;
-        strcpy(argvdata, "node") ;
-        strcpy(argvdata+5, tdata->script.data()) ;
-        strcpy(argvdata+5+tdata->script.length()+1, tdata->script_argv.data()) ;
-        const char * argv[3] = {argvdata, argvdata+5, argvdata+5+tdata->script.length()+1 } ;
-        const char * exec_argv[1] = {"child"} ;
-
-        node::Start(tdata->loop, 3, argv, 1, exec_argv, &tdata->isolate, nullptr) ;
-
-        delete[] argvdata ;
+        node::Start(tdata->loop, tdata->args, tdata->exec_args, &tdata->isolate, nullptr) ;
     }
 
     // 执行函数
     else {
 
-        // nodejs 要求 argv 数组在连续的内存上
-        char * execargvdata = new char[3+tdata->script.length()] ;
-        strcpy(execargvdata, "-e") ;
-        strcpy(execargvdata+3, tdata->script.data()) ;
-        const char * exec_argv[2] = {execargvdata, execargvdata+3} ;
-        const char * argv[2] = {"node", "/dev/null"} ;
+        // // nodejs 要求 argv 数组在连续的内存上
+        // char * execargvdata = new char[3+tdata->script.length()] ;
+        // strcpy(execargvdata, "-e") ;
+        // strcpy(execargvdata+3, tdata->script.data()) ;
+        // const char * exec_argv[2] = {execargvdata, execargvdata+3} ;
+        // const char * argv[2] = {"node", "/dev/null"} ;
 
-        node::Start(tdata->loop, 1, argv, 2, exec_argv, &tdata->isolate, [](int argc, const char* const* argv, int exec_argc, const char* const* exec_argv,v8::Isolate * isolate){
-            if(exec_argc>=2) {
-                v8::Locker locker(isolate) ;
-                v8::HandleScope scope(isolate);
-                v8::Script::Compile ( v8::String::NewFromUtf8(isolate, exec_argv[1]) )->Run() ;
-            }
-        }) ;
+        // node::Start(tdata->loop, 1, argv, 2, exec_argv, &tdata->isolate, [](int argc, const char* const* argv, int exec_argc, const char* const* exec_argv,v8::Isolate * isolate){
+        //     if(exec_argc>=2) {
+        //         v8::Locker locker(isolate) ;
+        //         v8::HandleScope scope(isolate);
+        //         v8::Script::Compile ( v8::String::NewFromUtf8(isolate, exec_argv[1]) )->Run() ;
+        //     }
+        // }) ;
 
-        delete[] execargvdata ;
+        // delete[] execargvdata ;
     }
 
     uv_loop_close(tdata->loop);
@@ -152,10 +146,10 @@ void Run(const FunctionCallbackInfo<Value>& args) {
     gThreadPool.push_back(tdata);
 
     if( args.Length()>=1 && args[0]->IsString() ){
-        tdata->script = *(v8::String::Utf8Value(args[0]->ToString())) ;
+        tdata->args.push_back( *(v8::String::Utf8Value(args[0]->ToString())) ) ;
 
         if( args.Length()>=2 && args[1]->IsString() ){
-            tdata->script_argv = *(v8::String::Utf8Value(args[1]->ToString())) ;
+            tdata->args.push_back( *(v8::String::Utf8Value(args[1]->ToString())) ) ;
         }
     }
     else {

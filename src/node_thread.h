@@ -33,10 +33,11 @@ struct thread_data {
     unsigned int id ;
     uv_thread_t thread ;
     uv_loop_t * loop ;
-    std::string script ;
-    std::string script_argv ;
     bool by_path = true ;
     v8::Isolate * isolate = nullptr ;
+
+    std::vector<std::string> args ;
+    std::vector<std::string> exec_args ;
 
     uv_mutex_t message_mutex;
     uv_async_t message_async;

@@ -97,6 +97,8 @@ extern int VerifyCallback(int preverify_ok, X509_STORE_CTX* ctx);
 
 extern void UseExtraCaCerts(const std::string& file);
 
+void InitCryptoOnce();
+
 class SecureContext : public BaseObject {
  public:
   ~SecureContext() override {
@@ -108,6 +110,8 @@ class SecureContext : public BaseObject {
   void MemoryInfo(MemoryTracker* tracker) const override {
     tracker->TrackThis(this);
   }
+
+  ADD_MEMORY_INFO_NAME(SecureContext)
 
   SSLCtxPointer ctx_;
   X509Pointer cert_;
@@ -194,7 +198,9 @@ class SecureContext : public BaseObject {
   }
 
   inline void Reset() {
-    env()->isolate()->AdjustAmountOfExternalAllocatedMemory(-kExternalSize);
+    if (ctx_ != nullptr) {
+      env()->isolate()->AdjustAmountOfExternalAllocatedMemory(-kExternalSize);
+    }
     ctx_.reset();
     cert_.reset();
     issuer_.reset();
@@ -345,6 +351,8 @@ class CipherBase : public BaseObject {
     tracker->TrackThis(this);
   }
 
+  ADD_MEMORY_INFO_NAME(CipherBase)
+
  protected:
   enum CipherKind {
     kCipher,
@@ -377,6 +385,7 @@ class CipherBase : public BaseObject {
 
   bool IsAuthenticatedMode() const;
   bool SetAAD(const char* data, unsigned int len, int plaintext_len);
+  bool MaybePassAuthTagToOpenSSL();
 
   static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
   static void Init(const v8::FunctionCallbackInfo<v8::Value>& args);
@@ -419,6 +428,8 @@ class Hmac : public BaseObject {
     tracker->TrackThis(this);
   }
 
+  ADD_MEMORY_INFO_NAME(Hmac)
+
  protected:
   void HmacInit(const char* hash_type, const char* key, int key_len);
   bool HmacUpdate(const char* data, int len);
@@ -445,6 +456,8 @@ class Hash : public BaseObject {
   void MemoryInfo(MemoryTracker* tracker) const override {
     tracker->TrackThis(this);
   }
+
+  ADD_MEMORY_INFO_NAME(Hash)
 
   bool HashInit(const char* hash_type);
   bool HashUpdate(const char* data, int len);
@@ -488,6 +501,8 @@ class SignBase : public BaseObject {
   void MemoryInfo(MemoryTracker* tracker) const override {
     tracker->TrackThis(this);
   }
+
+  ADD_MEMORY_INFO_NAME(SignBase)
 
  protected:
   void CheckThrow(Error error);
@@ -605,6 +620,8 @@ class DiffieHellman : public BaseObject {
     tracker->TrackThis(this);
   }
 
+  ADD_MEMORY_INFO_NAME(DiffieHellman)
+
  private:
   static void GetField(const v8::FunctionCallbackInfo<v8::Value>& args,
                        const BIGNUM* (*get_field)(const DH*),
@@ -633,6 +650,8 @@ class ECDH : public BaseObject {
   void MemoryInfo(MemoryTracker* tracker) const override {
     tracker->TrackThis(this);
   }
+
+  ADD_MEMORY_INFO_NAME(ECDH)
 
  protected:
   ECDH(Environment* env, v8::Local<v8::Object> wrap, ECKeyPointer&& key)

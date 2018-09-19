@@ -2145,15 +2145,15 @@ endian). `value` *should* be a valid 64-bit double. Behavior is undefined when
 ```js
 const buf = Buffer.allocUnsafe(8);
 
-buf.writeDoubleBE(0xdeadbeefcafebabe, 0);
+buf.writeDoubleBE(123.456, 0);
 
 console.log(buf);
-// Prints: <Buffer 43 eb d5 b7 dd f9 5f d7>
+// Prints: <Buffer 40 5e dd 2f 1a 9f be 77>
 
-buf.writeDoubleLE(0xdeadbeefcafebabe, 0);
+buf.writeDoubleLE(123.456, 0);
 
 console.log(buf);
-// Prints: <Buffer d7 5f f9 dd b7 d5 eb 43>
+// Prints: <Buffer 77 be 9f 1a 2f dd 5e 40>
 ```
 
 ### buf.writeFloatBE(value, offset)
@@ -2507,6 +2507,9 @@ encoding to another. Returns a new `Buffer` instance.
 
 Throws if the `fromEnc` or `toEnc` specify invalid character encodings or if
 conversion from `fromEnc` to `toEnc` is not permitted.
+
+Encodings supported by `buffer.transcode()` are: `'ascii'`, `'utf8'`,
+`'utf16le'`, `'ucs2'`, `'latin1'`, and `'binary'`.
 
 The transcoding process will use substitution characters if a given byte
 sequence cannot be adequately represented in the target encoding. For instance:

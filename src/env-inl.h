@@ -32,7 +32,6 @@
 #include "v8.h"
 #include "node_perf_common.h"
 #include "node_context_data.h"
-#include "tracing/agent.h"
 #include "node_worker.h"
 
 #include <stddef.h>
@@ -219,8 +218,8 @@ inline Environment::AsyncCallbackScope::~AsyncCallbackScope() {
   env_->makecallback_cntr_--;
 }
 
-inline bool Environment::AsyncCallbackScope::in_makecallback() const {
-  return env_->makecallback_cntr_ > 1;
+inline size_t Environment::makecallback_depth() const {
+  return makecallback_cntr_;
 }
 
 inline Environment::ImmediateInfo::ImmediateInfo(v8::Isolate* isolate)
@@ -334,8 +333,8 @@ inline v8::Isolate* Environment::isolate() const {
   return isolate_;
 }
 
-inline tracing::Agent* Environment::tracing_agent() const {
-  return tracing_agent_;
+inline tracing::AgentWriterHandle* Environment::tracing_agent_writer() const {
+  return tracing_agent_writer_;
 }
 
 inline Environment* Environment::from_immediate_check_handle(
@@ -558,6 +557,14 @@ Environment::fs_stats_field_bigint_array() {
 inline std::vector<std::unique_ptr<fs::FileHandleReadWrap>>&
 Environment::file_handle_read_wrap_freelist() {
   return file_handle_read_wrap_freelist_;
+}
+
+inline std::shared_ptr<EnvironmentOptions> Environment::options() {
+  return options_;
+}
+
+inline std::shared_ptr<PerIsolateOptions> IsolateData::options() {
+  return options_;
 }
 
 void Environment::CreateImmediate(native_immediate_callback cb,

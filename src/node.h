@@ -84,15 +84,18 @@
 # define NODE_GNUC_AT_LEAST(major, minor, patch) (0)
 #endif
 
-#if NODE_CLANG_AT_LEAST(2, 9, 0) || NODE_GNUC_AT_LEAST(4, 5, 0)
-# define NODE_DEPRECATED(message, declarator)                                 \
+#if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
+# define NODE_DEPRECATED(message, declarator) declarator
+#else  // NODE_WANT_INTERNALS
+# if NODE_CLANG_AT_LEAST(2, 9, 0) || NODE_GNUC_AT_LEAST(4, 5, 0)
+#  define NODE_DEPRECATED(message, declarator)                                 \
     __attribute__((deprecated(message))) declarator
-#elif defined(_MSC_VER)
-# define NODE_DEPRECATED(message, declarator)                                 \
+# elif defined(_MSC_VER)
+#  define NODE_DEPRECATED(message, declarator)                                 \
     __declspec(deprecated) declarator
-#else
-# define NODE_DEPRECATED(message, declarator)                                 \
-    declarator
+# else
+#  define NODE_DEPRECATED(message, declarator) declarator
+# endif
 #endif
 
 // Forward-declare libuv loop
@@ -200,23 +203,33 @@ typedef intptr_t ssize_t;
 
 namespace node {
 
-NODE_EXTERN extern bool no_deprecation;
+// TODO(addaleax): Remove all of these.
+NODE_DEPRECATED("use command-line flags",
+                NODE_EXTERN extern bool no_deprecation);
 #if HAVE_OPENSSL
-NODE_EXTERN extern bool ssl_openssl_cert_store;
+NODE_DEPRECATED("use command-line flags",
+                NODE_EXTERN extern bool ssl_openssl_cert_store);
 # if NODE_FIPS_MODE
-NODE_EXTERN extern bool enable_fips_crypto;
-NODE_EXTERN extern bool force_fips_crypto;
+NODE_DEPRECATED("use command-line flags",
+                NODE_EXTERN extern bool enable_fips_crypto);
+NODE_DEPRECATED("user command-line flags",
+                NODE_EXTERN extern bool force_fips_crypto);
 # endif
 #endif
 
-typedef void (* BeforeNodeStart) ( int argc, const char* const* argv,
-                                   int exec_argc, const char* const* exec_argv, v8::Isolate *) ;
-
+typedef void (* BeforeNodeStart) (
+                const std::vector<std::string>& args,
+                const std::vector<std::string>& exec_args, v8::Isolate *) ;
 NODE_EXTERN int Start(uv_loop_t* event_loop,
-                 int argc, const char* const* argv,
-                 int exec_argc, const char* const* exec_argv,
-                 v8::Isolate ** isolate_out=nullptr, BeforeNodeStart cb=nullptr) ;
+                const std::vector<std::string>& args,
+                const std::vector<std::string>& exec_args,
+                v8::Isolate ** isolate_out=nullptr, BeforeNodeStart cb=nullptr) ;
+// TODO(addaleax): Officially deprecate this and replace it with something
+// better suited for a public embedder API.
 NODE_EXTERN int Start(int argc, char* argv[]);
+
+// TODO(addaleax): Officially deprecate this and replace it with something
+// better suited for a public embedder API.
 NODE_EXTERN void Init(int* argc,
                       const char** argv,
                       int* exec_argc,
@@ -230,7 +243,7 @@ NODE_EXTERN void FreeArrayBufferAllocator(ArrayBufferAllocator* allocator);
 class IsolateData;
 class Environment;
 
-class MultiIsolatePlatform : public v8::Platform {
+class NODE_EXTERN MultiIsolatePlatform : public v8::Platform {
  public:
   virtual ~MultiIsolatePlatform() { }
   // Returns true if work was dispatched or executed. New tasks that are
@@ -273,6 +286,8 @@ NODE_EXTERN IsolateData* CreateIsolateData(
     ArrayBufferAllocator* allocator);
 NODE_EXTERN void FreeIsolateData(IsolateData* isolate_data);
 
+// TODO(addaleax): Add an official variant using STL containers, and move
+// per-Environment options parsing here.
 NODE_EXTERN Environment* CreateEnvironment(IsolateData* isolate_data,
                                            v8::Local<v8::Context> context,
                                            int argc,
@@ -311,7 +326,8 @@ NODE_EXTERN struct uv_loop_s* GetCurrentEventLoop(v8::Isolate* isolate);
     v8::Isolate* isolate = target->GetIsolate();                              \
     v8::Local<v8::Context> context = isolate->GetCurrentContext();            \
     v8::Local<v8::String> constant_name =                                     \
-        v8::String::NewFromUtf8(isolate, #constant);                          \
+        v8::String::NewFromUtf8(isolate, #constant,                           \
+            v8::NewStringType::kInternalized).ToLocalChecked();               \
     v8::Local<v8::Number> constant_value =                                    \
         v8::Number::New(isolate, static_cast<double>(constant));              \
     v8::PropertyAttribute constant_attributes =                               \
@@ -352,7 +368,8 @@ inline void NODE_SET_METHOD(v8::Local<v8::Template> recv,
   v8::HandleScope handle_scope(isolate);
   v8::Local<v8::FunctionTemplate> t = v8::FunctionTemplate::New(isolate,
                                                                 callback);
-  v8::Local<v8::String> fn_name = v8::String::NewFromUtf8(isolate, name);
+  v8::Local<v8::String> fn_name = v8::String::NewFromUtf8(isolate, name,
+      v8::NewStringType::kInternalized).ToLocalChecked();
   t->SetClassName(fn_name);
   recv->Set(fn_name, t);
 }
@@ -366,7 +383,8 @@ inline void NODE_SET_METHOD(v8::Local<v8::Object> recv,
   v8::Local<v8::FunctionTemplate> t = v8::FunctionTemplate::New(isolate,
                                                                 callback);
   v8::Local<v8::Function> fn = t->GetFunction();
-  v8::Local<v8::String> fn_name = v8::String::NewFromUtf8(isolate, name);
+  v8::Local<v8::String> fn_name = v8::String::NewFromUtf8(isolate, name,
+      v8::NewStringType::kInternalized).ToLocalChecked();
   fn->SetName(fn_name);
   recv->Set(fn_name, fn);
 }
@@ -382,7 +400,8 @@ inline void NODE_SET_PROTOTYPE_METHOD(v8::Local<v8::FunctionTemplate> recv,
   v8::Local<v8::Signature> s = v8::Signature::New(isolate, recv);
   v8::Local<v8::FunctionTemplate> t =
       v8::FunctionTemplate::New(isolate, callback, v8::Local<v8::Value>(), s);
-  v8::Local<v8::String> fn_name = v8::String::NewFromUtf8(isolate, name);
+  v8::Local<v8::String> fn_name = v8::String::NewFromUtf8(isolate, name,
+      v8::NewStringType::kInternalized).ToLocalChecked();
   t->SetClassName(fn_name);
   recv->PrototypeTemplate()->Set(fn_name, t);
 }
@@ -410,13 +429,13 @@ NODE_DEPRECATED("Use FatalException(isolate, ...)",
   return FatalException(v8::Isolate::GetCurrent(), try_catch);
 })
 
-// Don't call with encoding=UCS2.
 NODE_EXTERN v8::Local<v8::Value> Encode(v8::Isolate* isolate,
                                         const char* buf,
                                         size_t len,
                                         enum encoding encoding = LATIN1);
 
-// The input buffer should be in host endianness.
+// Warning: This reverses endianness on Big Endian platforms, even though the
+// signature using uint16_t implies that it should not.
 NODE_EXTERN v8::Local<v8::Value> Encode(v8::Isolate* isolate,
                                         const uint16_t* buf,
                                         size_t len);

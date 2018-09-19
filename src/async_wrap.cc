@@ -410,7 +410,8 @@ void AsyncWrap::PopAsyncIds(const FunctionCallbackInfo<Value>& args) {
 void AsyncWrap::AsyncReset(const FunctionCallbackInfo<Value>& args) {
   AsyncWrap* wrap;
   ASSIGN_OR_RETURN_UNWRAP(&wrap, args.Holder());
-  double execution_async_id = args[0]->IsNumber() ? args[0]->NumberValue() : -1;
+  double execution_async_id =
+      args[0]->IsNumber() ? args[0].As<Number>()->Value() : -1;
   wrap->AsyncReset(execution_async_id);
 }
 
@@ -418,7 +419,8 @@ void AsyncWrap::AsyncReset(const FunctionCallbackInfo<Value>& args) {
 void AsyncWrap::QueueDestroyAsyncId(const FunctionCallbackInfo<Value>& args) {
   CHECK(args[0]->IsNumber());
   AsyncWrap::EmitDestroy(
-      Environment::GetCurrent(args), args[0]->NumberValue());
+      Environment::GetCurrent(args),
+      args[0].As<Number>()->Value());
 }
 
 void AsyncWrap::AddWrapMethods(Environment* env,
@@ -480,6 +482,10 @@ void AsyncWrap::Initialize(Local<Object> target,
   target->Set(context,
               env->async_ids_stack_string(),
               env->async_hooks()->async_ids_stack().GetJSArray()).FromJust();
+
+  target->Set(context,
+              FIXED_ONE_BYTE_STRING(env->isolate(), "owner_symbol"),
+              env->owner_symbol()).FromJust();
 
   Local<Object> constants = Object::New(isolate);
 #define SET_HOOKS_CONSTANT(name)                                              \
@@ -728,6 +734,27 @@ std::string AsyncWrap::MemoryInfoName() const {
 std::string AsyncWrap::diagnostic_name() const {
   return MemoryInfoName() + " (" + std::to_string(env()->thread_id()) + ":" +
       std::to_string(static_cast<int64_t>(async_id_)) + ")";
+}
+
+Local<Object> AsyncWrap::GetOwner() {
+  return GetOwner(env(), object());
+}
+
+Local<Object> AsyncWrap::GetOwner(Environment* env, Local<Object> obj) {
+  v8::EscapableHandleScope handle_scope(env->isolate());
+  CHECK(!obj.IsEmpty());
+
+  v8::TryCatch ignore_exceptions(env->isolate());
+  while (true) {
+    Local<Value> owner;
+    if (!obj->Get(env->context(),
+                  env->owner_symbol()).ToLocal(&owner) ||
+        !owner->IsObject()) {
+      return handle_scope.Escape(obj);
+    }
+
+    obj = owner.As<Object>();
+  }
 }
 
 }  // namespace node

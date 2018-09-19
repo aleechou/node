@@ -44,6 +44,8 @@ IsolateData::IsolateData(Isolate* isolate,
   if (platform_ != nullptr)
     platform_->RegisterIsolate(this, event_loop);
 
+  options_.reset(new PerIsolateOptions(*per_process_opts->per_isolate));
+
   // Create string and private symbol properties as internalized one byte
   // strings after the platform is properly initialized.
   //
@@ -103,10 +105,10 @@ void InitThreadLocalOnce() {
 
 Environment::Environment(IsolateData* isolate_data,
                          Local<Context> context,
-                         tracing::Agent* tracing_agent)
+                         tracing::AgentWriterHandle* tracing_agent_writer)
     : isolate_(context->GetIsolate()),
       isolate_data_(isolate_data),
-      tracing_agent_(tracing_agent),
+      tracing_agent_writer_(tracing_agent_writer),
       immediate_info_(context->GetIsolate()),
       tick_info_(context->GetIsolate()),
       timer_base_(uv_now(isolate_data->event_loop())),
@@ -116,9 +118,6 @@ Environment::Environment(IsolateData* isolate_data,
       emit_env_nonstring_warning_(true),
       makecallback_cntr_(0),
       should_abort_on_uncaught_toggle_(isolate_, 1),
-#if HAVE_INSPECTOR
-      inspector_agent_(new inspector::Agent(this)),
-#endif
       http_parser_buffer_(nullptr),
       fs_stats_field_array_(isolate_, kFsStatsFieldsLength * 2),
       fs_stats_field_bigint_array_(isolate_, kFsStatsFieldsLength * 2),
@@ -127,6 +126,19 @@ Environment::Environment(IsolateData* isolate_data,
   v8::HandleScope handle_scope(isolate());
   v8::Context::Scope context_scope(context);
   set_as_external(v8::External::New(isolate(), this));
+
+  // We create new copies of the per-Environment option sets, so that it is
+  // easier to modify them after Environment creation. The defaults are
+  // part of the per-Isolate option set, for which in turn the defaults are
+  // part of the per-process option set.
+  options_.reset(new EnvironmentOptions(*isolate_data->options()->per_env));
+  options_->debug_options.reset(new DebugOptions(*options_->debug_options));
+
+#if HAVE_INSPECTOR
+  // We can only create the inspector agent after having cloned the options.
+  inspector_agent_ =
+      std::unique_ptr<inspector::Agent>(new inspector::Agent(this));
+#endif
 
   AssignToContext(context, ContextInfo(""));
 
@@ -176,10 +188,8 @@ Environment::~Environment() {
   delete[] http_parser_buffer_;
 }
 
-void Environment::Start(int argc,
-                        const char* const* argv,
-                        int exec_argc,
-                        const char* const* exec_argv,
+void Environment::Start(const std::vector<std::string>& args,
+                        const std::vector<std::string>& exec_args,
                         bool start_profiler_idle_notifier) {
   HandleScope handle_scope(isolate());
   Context::Scope context_scope(context());
@@ -222,7 +232,7 @@ void Environment::Start(int argc,
       process_template->GetFunction()->NewInstance(context()).ToLocalChecked();
   set_process_object(process_object);
 
-  SetupProcessObject(this, argc, argv, exec_argc, exec_argv);
+  SetupProcessObject(this, args, exec_args);
 
   static uv_once_t init_once = UV_ONCE_INIT;
   uv_once(&init_once, InitThreadLocalOnce);
@@ -306,11 +316,11 @@ void Environment::PrintSyncTrace() const {
   Local<v8::StackTrace> stack =
       StackTrace::CurrentStackTrace(isolate(), 10, StackTrace::kDetailed);
 
-  fprintf(stderr, "(node:%u) WARNING: Detected use of sync API\n",
+  fprintf(stderr, "(node:%d) WARNING: Detected use of sync API\n",
           uv_os_getpid());
 
   for (int i = 0; i < stack->GetFrameCount() - 1; i++) {
-    Local<StackFrame> stack_frame = stack->GetFrame(i);
+    Local<StackFrame> stack_frame = stack->GetFrame(isolate(), i);
     node::Utf8Value fn_name_s(isolate(), stack_frame->GetFunctionName());
     node::Utf8Value script_name(isolate(), stack_frame->GetScriptName());
     const int line_number = stack_frame->GetLineNumber();
@@ -536,7 +546,7 @@ Local<Value> Environment::GetNow() {
   CHECK_GE(now, timer_base());
   now -= timer_base();
   if (now <= 0xffffffff)
-    return Integer::New(isolate(), static_cast<uint32_t>(now));
+    return Integer::NewFromUnsigned(isolate(), static_cast<uint32_t>(now));
   else
     return Number::New(isolate(), static_cast<double>(now));
 }

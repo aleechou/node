@@ -350,8 +350,8 @@ assertDeepAndStrictEqual(
   new Map([[1, undefined]])
 );
 assertOnlyDeepEqual(
-  new Map([[1, null]]),
-  new Map([['1', undefined]])
+  new Map([[1, null], ['', '0']]),
+  new Map([['1', undefined], [false, 0]])
 );
 assertNotDeepOrStrict(
   new Map([[1, undefined]]),
@@ -364,12 +364,21 @@ assertDeepAndStrictEqual(
   new Map([[null, 3]])
 );
 assertOnlyDeepEqual(
-  new Map([[null, undefined]]),
-  new Map([[undefined, null]])
+  new Map([[undefined, null], ['+000', 2n]]),
+  new Map([[null, undefined], [false, '2']]),
+);
+
+assertOnlyDeepEqual(
+  new Set([null, '', 1n, 5, 2n, false]),
+  new Set([undefined, 0, 5n, true, '2', '-000'])
+);
+assertNotDeepOrStrict(
+  new Set(['']),
+  new Set(['0'])
 );
 assertOnlyDeepEqual(
-  new Set([null]),
-  new Set([undefined])
+  new Map([[1, {}]]),
+  new Map([[true, {}]])
 );
 
 // GH-6416. Make sure circular refs don't throw.
@@ -547,13 +556,12 @@ assertOnlyDeepEqual([1, , , 3], [1, , , 3, , , ]);
 // Handle different error messages
 {
   const err1 = new Error('foo1');
-  const err2 = new Error('foo2');
-  const err3 = new TypeError('foo1');
-  assertNotDeepOrStrict(err1, err2, assert.AssertionError);
-  assertNotDeepOrStrict(err1, err3, assert.AssertionError);
+  assertNotDeepOrStrict(err1, new Error('foo2'), assert.AssertionError);
+  assertNotDeepOrStrict(err1, new TypeError('foo1'), assert.AssertionError);
+  assertDeepAndStrictEqual(err1, new Error('foo1'));
   // TODO: evaluate if this should throw or not. The same applies for RegExp
   // Date and any object that has the same keys but not the same prototype.
-  assertOnlyDeepEqual(err1, {}, assert.AssertionError);
+  assertOnlyDeepEqual(err1, {});
 }
 
 // Handle NaN
@@ -926,4 +934,29 @@ assert.throws(() => assert.deepStrictEqual(new Boolean(true), {}),
                '  [\n    1,\n-   2\n+   2,\n+   3\n  ]' }
   );
   util.inspect.defaultOptions = tmp;
+
+  const invalidTrap = new Proxy([1, 2, 3], {
+    ownKeys() { return []; }
+  });
+  assert.throws(
+    () => assert.deepStrictEqual(invalidTrap, [1, 2, 3]),
+    {
+      name: 'TypeError',
+      message: "'ownKeys' on proxy: trap result did not include 'length'"
+    }
+  );
+}
+
+// Basic valueOf check.
+{
+  const a = new String(1);
+  a.valueOf = undefined;
+  assertNotDeepOrStrict(a, new String(1));
+}
+
+// Basic array out of bounds check.
+{
+  const arr = [1, 2, 3];
+  arr[2 ** 32] = true;
+  assertNotDeepOrStrict(arr, [1, 2, 3]);
 }
