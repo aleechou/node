@@ -3143,7 +3143,7 @@ Isolate* NewIsolate(ArrayBufferAllocator* allocator) {
   return isolate;
 }
 
-inline int Start(uv_loop_t* event_loop,
+int Start(uv_loop_t* event_loop,
                  const std::vector<std::string>& args,
                  const std::vector<std::string>& exec_args,
                  v8::Isolate ** isolate_out, BeforeNodeStart cb) {
