@@ -2037,6 +2037,14 @@ void SetupProcessObject(Environment* env,
                           env->options()->eval_string.c_str(),
                           NewStringType::kNormal).ToLocalChecked());
   }
+  else if(exec_args.size()>=2 && exec_args[0]=="-e" && exec_args[1].length()>0) {
+      READONLY_PROPERTY(process,
+                        "_eval",
+                        String::NewFromUtf8(
+                            env->isolate(),
+                            exec_args[1].c_str(),
+                            NewStringType::kNormal).ToLocalChecked());
+  }
 
   // -p, --print
   if (env->options()->print_eval) {

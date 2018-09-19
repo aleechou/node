@@ -85,10 +85,6 @@ thread_data * create_thread_data(uv_loop_t * loop) {
     tdata->id = assigned_thread_id ++ ;
     tdata->loop = loop ;
 
-    // 参数
-    tdata->args.push_back("node") ;
-    tdata->exec_args.push_back("child") ;
-
     // 创建消息队列( 0-5. 默认3)
     for(int p=0; p<6; p++) {
         tdata->messageQueues.push_back( std::vector<std::string>() );
@@ -106,31 +102,8 @@ static void newthread(void* arg) {
 
     uv_loop_init(tdata->loop) ;
 
-    // 执行文件
-    if(tdata->by_path) {
-        node::Start(tdata->loop, tdata->args, tdata->exec_args, &tdata->isolate, nullptr) ;
-    }
-
-    // 执行函数
-    else {
-
-        // // nodejs 要求 argv 数组在连续的内存上
-        // char * execargvdata = new char[3+tdata->script.length()] ;
-        // strcpy(execargvdata, "-e") ;
-        // strcpy(execargvdata+3, tdata->script.data()) ;
-        // const char * exec_argv[2] = {execargvdata, execargvdata+3} ;
-        // const char * argv[2] = {"node", "/dev/null"} ;
-
-        // node::Start(tdata->loop, 1, argv, 2, exec_argv, &tdata->isolate, [](int argc, const char* const* argv, int exec_argc, const char* const* exec_argv,v8::Isolate * isolate){
-        //     if(exec_argc>=2) {
-        //         v8::Locker locker(isolate) ;
-        //         v8::HandleScope scope(isolate);
-        //         v8::Script::Compile ( v8::String::NewFromUtf8(isolate, exec_argv[1]) )->Run() ;
-        //     }
-        // }) ;
-
-        // delete[] execargvdata ;
-    }
+    // 执行
+    node::Start(tdata->loop, tdata->args, tdata->exec_args, &tdata->isolate, nullptr) ;
 
     uv_loop_close(tdata->loop);
     delete tdata->loop;
@@ -140,27 +113,28 @@ static void newthread(void* arg) {
     delete tdata ;
 }
 
+#define strval(string) *(v8::String::Utf8Value(string->ToString()))
+
 void Run(const FunctionCallbackInfo<Value>& args) {
-    
-    thread_data * tdata = create_thread_data(new uv_loop_t) ;
-    gThreadPool.push_back(tdata);
 
-    if( args.Length()>=1 && args[0]->IsString() ){
-        tdata->args.push_back( *(v8::String::Utf8Value(args[0]->ToString())) ) ;
-
-        if( args.Length()>=2 && args[1]->IsString() ){
-            tdata->args.push_back( *(v8::String::Utf8Value(args[1]->ToString())) ) ;
-        }
-    }
-    else {
+    if(args.Length()<2) {
+        std::cout << "missing argv" << std::endl ;
         return ;
     }
 
-    if( args.Length()>=3 && args[2]->IsBoolean() && !args[2]->ToBoolean()->Value() ){
-        tdata->by_path = true ;
+    thread_data * tdata = create_thread_data(new uv_loop_t) ;
+    gThreadPool.push_back(tdata);
+
+    // args
+    v8::Local<v8::Array> targs = v8::Local<v8::Array>::Cast(args[0]);
+    for(int i=0; i<targs->Length(); i++){
+        tdata->args.push_back( strval(targs->Get(i)) ) ;
     }
-    else {
-        tdata->by_path = false ;
+
+    // exec_args
+    v8::Local<v8::Array> texecargs = v8::Local<v8::Array>::Cast(args[1]);
+    for(int i=0; i<texecargs->Length(); i++){
+        tdata->exec_args.push_back( strval(texecargs->Get(i)) ) ;
     }
 
     // 启动线程结束

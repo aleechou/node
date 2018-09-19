@@ -33,7 +33,6 @@ struct thread_data {
     unsigned int id ;
     uv_thread_t thread ;
     uv_loop_t * loop ;
-    bool by_path = true ;
     v8::Isolate * isolate = nullptr ;
 
     std::vector<std::string> args ;
